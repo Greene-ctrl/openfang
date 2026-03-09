@@ -1,6 +1,9 @@
 # syntax=docker/dockerfile:1
 FROM rust:1-slim-bookworm AS builder
 WORKDIR /build
+# Reduce memory usage during build (limit parallel jobs)
+ENV CARGO_BUILD_JOBS=1
+ENV CARGO_NET_RETRY=10
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
@@ -16,5 +19,6 @@ COPY --from=builder /build/agents /opt/openfang/agents
 EXPOSE 4200
 VOLUME /data
 ENV OPENFANG_HOME=/data
+ENV OPENFANG_LISTEN=0.0.0.0:4200
 ENTRYPOINT ["openfang"]
 CMD ["start"]

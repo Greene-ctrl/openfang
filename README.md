@@ -1,3 +1,13 @@
+---
+title: OpenFang
+emoji: 🐺
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 4200
+pinned: false
+---
+
 <p align="center">
   <img src="public/assets/openfang-logo.png" width="160" alt="OpenFang Logo" />
 </p>
