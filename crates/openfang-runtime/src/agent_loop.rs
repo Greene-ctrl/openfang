@@ -81,6 +81,10 @@ pub enum LoopPhase {
     ToolUse { tool_name: String },
     /// Agent is streaming tokens.
     Streaming,
+    /// Agent is continuing a long response.
+    Continuing,
+    /// Agent is re-evaluating after tool use.
+    Rethinking,
     /// Agent finished successfully.
     Done,
     /// Agent encountered an error.
@@ -1189,6 +1193,22 @@ pub async fn run_agent_loop_streaming(
     for iteration in 0..max_iterations {
         debug!(iteration, "Streaming agent loop iteration");
 
+        if iteration > 0 {
+            if let Some(cb) = on_phase {
+                cb(LoopPhase::Rethinking);
+            }
+            if stream_tx
+                .send(StreamEvent::PhaseChange {
+                    phase: "rethinking".to_string(),
+                    detail: Some("Re-evaluating plan after tool execution...".to_string()),
+                })
+                .await
+                .is_err()
+            {
+                warn!("Stream consumer disconnected while sending rethinking phase");
+            }
+        }
+
         // Context overflow recovery pipeline (replaces emergency_trim_messages)
         let recovery =
             recover_from_overflow(&mut messages, &system_prompt, available_tools, ctx_window);
@@ -1680,6 +1700,21 @@ pub async fn run_agent_loop_streaming(
                         directives: Default::default(),
                     });
                 }
+
+                if let Some(cb) = on_phase {
+                    cb(LoopPhase::Continuing);
+                }
+                if stream_tx
+                    .send(StreamEvent::PhaseChange {
+                        phase: "continuing".to_string(),
+                        detail: Some("Token limit reached. Continuing response...".to_string()),
+                    })
+                    .await
+                    .is_err()
+                {
+                    warn!("Stream consumer disconnected while sending continuing phase");
+                }
+
                 let text = response.text();
                 session.messages.push(Message::assistant(&text));
                 messages.push(Message::assistant(&text));

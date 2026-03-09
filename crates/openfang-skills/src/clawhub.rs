@@ -17,6 +17,8 @@ use crate::SkillError;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tokio::sync::Semaphore;
 use tracing::{info, warn};
 
 // ---------------------------------------------------------------------------
@@ -229,6 +231,8 @@ pub struct ClawHubClient {
     client: reqwest::Client,
     /// Local cache directory for downloaded skills.
     _cache_dir: PathBuf,
+    /// Concurrency limiter.
+    semaphore: Arc<Semaphore>,
 }
 
 impl ClawHubClient {
@@ -248,6 +252,44 @@ impl ClawHubClient {
                 .build()
                 .unwrap_or_default(),
             _cache_dir: cache_dir,
+            // Limit to 2 concurrent requests to ClawHub to avoid hitting rate limits too fast
+            semaphore: Arc::new(Semaphore::new(2)),
+        }
+    }
+
+    /// Internal helper to execute a GET request with retry logic for 429 errors.
+    async fn get_with_retry(&self, url: &str) -> Result<reqwest::Response, SkillError> {
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
+            .map_err(|e| SkillError::Network(format!("Failed to acquire semaphore: {e}")))?;
+
+        let mut attempts = 0;
+        let max_attempts = 3;
+        let mut backoff = std::time::Duration::from_secs(2);
+
+        loop {
+            attempts += 1;
+            let response = self
+                .client
+                .get(url)
+                .header("User-Agent", "OpenFang/0.1")
+                .send()
+                .await
+                .map_err(|e| SkillError::Network(format!("ClawHub request failed: {e}")))?;
+
+            if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS && attempts < max_attempts {
+                warn!(
+                    url,
+                    attempts, "ClawHub rate limited (429), retrying in {:?}", backoff
+                );
+                tokio::time::sleep(backoff).await;
+                backoff *= 2;
+                continue;
+            }
+
+            return Ok(response);
         }
     }
 
@@ -267,13 +309,7 @@ impl ClawHubClient {
             limit.min(50)
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .header("User-Agent", "OpenFang/0.1")
-            .send()
-            .await
-            .map_err(|e| SkillError::Network(format!("ClawHub search failed: {e}")))?;
+        let response = self.get_with_retry(&url).await?;
 
         if !response.status().is_success() {
             return Err(SkillError::Network(format!(
@@ -310,13 +346,7 @@ impl ClawHubClient {
             url.push_str(&format!("&cursor={}", urlencoded(c)));
         }
 
-        let response = self
-            .client
-            .get(&url)
-            .header("User-Agent", "OpenFang/0.1")
-            .send()
-            .await
-            .map_err(|e| SkillError::Network(format!("ClawHub browse failed: {e}")))?;
+        let response = self.get_with_retry(&url).await?;
 
         if !response.status().is_success() {
             return Err(SkillError::Network(format!(
@@ -340,13 +370,7 @@ impl ClawHubClient {
     pub async fn get_skill(&self, slug: &str) -> Result<ClawHubSkillDetail, SkillError> {
         let url = format!("{}/skills/{}", self.base_url, urlencoded(slug));
 
-        let response = self
-            .client
-            .get(&url)
-            .header("User-Agent", "OpenFang/0.1")
-            .send()
-            .await
-            .map_err(|e| SkillError::Network(format!("ClawHub detail failed: {e}")))?;
+        let response = self.get_with_retry(&url).await?;
 
         if !response.status().is_success() {
             return Err(SkillError::Network(format!(
@@ -384,13 +408,7 @@ impl ClawHubClient {
             urlencoded(path)
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .header("User-Agent", "OpenFang/0.1")
-            .send()
-            .await
-            .map_err(|e| SkillError::Network(format!("ClawHub file fetch failed: {e}")))?;
+        let response = self.get_with_retry(&url).await?;
 
         if !response.status().is_success() {
             return Err(SkillError::Network(format!(
@@ -427,13 +445,7 @@ impl ClawHubClient {
 
         info!(slug, "Downloading skill from ClawHub");
 
-        let response = self
-            .client
-            .get(&url)
-            .header("User-Agent", "OpenFang/0.1")
-            .send()
-            .await
-            .map_err(|e| SkillError::Network(format!("ClawHub download failed: {e}")))?;
+        let response = self.get_with_retry(&url).await?;
 
         if !response.status().is_success() {
             return Err(SkillError::Network(format!(

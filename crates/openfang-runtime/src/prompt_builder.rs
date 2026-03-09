@@ -447,7 +447,7 @@ const OPERATIONAL_GUIDELINES: &str = "\
 - If a tool returns an error, analyze the error before calling it again.
 - Prefer targeted, specific tool calls over broad ones.
 - Plan your approach before executing multiple tool calls.
-- If you cannot accomplish a task after a few attempts, explain what went wrong instead of looping.
+- If you cannot accomplish a task after a few attempts, rethink and reconfigure your approach.
 - Never call the same tool more than 3 times with the same parameters.
 - If a message requires no response (simple acknowledgments, reactions, messages not directed at you), respond with exactly NO_REPLY.";
 

@@ -796,6 +796,7 @@ impl LlmDriver for OpenAIDriver {
             // Parse the SSE stream
             let mut buffer = String::new();
             let mut text_content = String::new();
+            let mut thinking_content = String::new();
             // Track tool calls: index -> (id, name, arguments)
             let mut tool_accum: Vec<(String, String, String)> = Vec::new();
             let mut finish_reason: Option<String> = None;
@@ -859,6 +860,18 @@ impl LlmDriver for OpenAIDriver {
                             }
                         }
 
+                        // Reasoning/Thinking content delta (o-series models)
+                        if let Some(thinking) = delta["reasoning_content"].as_str() {
+                            if !thinking.is_empty() {
+                                thinking_content.push_str(thinking);
+                                let _ = tx
+                                    .send(StreamEvent::ThinkingDelta {
+                                        text: thinking.to_string(),
+                                    })
+                                    .await;
+                            }
+                        }
+
                         // Tool call deltas
                         if let Some(calls) = delta["tool_calls"].as_array() {
                             for call in calls {
@@ -912,6 +925,12 @@ impl LlmDriver for OpenAIDriver {
             // Build the final response
             let mut content = Vec::new();
             let mut tool_calls = Vec::new();
+
+            if !thinking_content.is_empty() {
+                content.push(ContentBlock::Thinking {
+                    thinking: thinking_content,
+                });
+            }
 
             if !text_content.is_empty() {
                 content.push(ContentBlock::Text { text: text_content });
