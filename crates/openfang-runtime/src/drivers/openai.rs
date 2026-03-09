@@ -112,18 +112,24 @@ struct OaiImageUrl {
     url: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 struct OaiToolCall {
-    id: String,
-    #[serde(rename = "type")]
-    call_type: String,
-    function: OaiFunction,
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(rename = "type", default)]
+    call_type: Option<String>,
+    #[serde(default)]
+    function: Option<OaiFunction>,
+    #[serde(default)]
+    index: Option<usize>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 struct OaiFunction {
-    name: String,
-    arguments: String,
+    #[serde(default)]
+    name: Option<String>,
+    #[serde(default)]
+    arguments: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -142,19 +148,33 @@ struct OaiToolDef {
 
 #[derive(Debug, Deserialize)]
 struct OaiResponse {
+    #[serde(default)]
     choices: Vec<OaiChoice>,
+    #[serde(default)]
     usage: Option<OaiUsage>,
 }
 
 #[derive(Debug, Deserialize)]
 struct OaiChoice {
-    message: OaiResponseMessage,
+    #[serde(default)]
+    message: Option<OaiResponseMessage>,
+    #[serde(default)]
+    delta: Option<OaiResponseMessage>,
+    #[serde(default)]
     finish_reason: Option<String>,
+    #[serde(default)]
+    index: Option<usize>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Default)]
 struct OaiResponseMessage {
+    #[serde(default)]
+    role: Option<String>,
+    #[serde(default)]
     content: Option<String>,
+    #[serde(default)]
+    reasoning_content: Option<String>,
+    #[serde(default)]
     tool_calls: Option<Vec<OaiToolCall>>,
 }
 
@@ -260,12 +280,13 @@ impl LlmDriver for OpenAIDriver {
                             ContentBlock::Text { text } => text_parts.push(text.clone()),
                             ContentBlock::ToolUse { id, name, input } => {
                                 tool_calls.push(OaiToolCall {
-                                    id: id.clone(),
-                                    call_type: "function".to_string(),
-                                    function: OaiFunction {
-                                        name: name.clone(),
-                                        arguments: serde_json::to_string(input).unwrap_or_default(),
-                                    },
+                                    id: Some(id.clone()),
+                                    call_type: Some("function".to_string()),
+                                    function: Some(OaiFunction {
+                                        name: Some(name.clone()),
+                                        arguments: Some(serde_json::to_string(input).unwrap_or_default()),
+                                    }),
+                                    index: None,
                                 });
                             }
                             ContentBlock::Thinking { .. } => {}
@@ -469,26 +490,41 @@ impl LlmDriver for OpenAIDriver {
             let mut content = Vec::new();
             let mut tool_calls = Vec::new();
 
-            if let Some(text) = choice.message.content {
-                if !text.is_empty() {
-                    content.push(ContentBlock::Text { text });
+            if let Some(msg) = choice.message {
+                if let Some(thinking) = msg.reasoning_content {
+                    if !thinking.is_empty() {
+                        content.push(ContentBlock::Thinking {
+                            thinking,
+                        });
+                    }
                 }
-            }
 
-            if let Some(calls) = choice.message.tool_calls {
-                for call in calls {
-                    let input: serde_json::Value =
-                        serde_json::from_str(&call.function.arguments).unwrap_or_default();
-                    content.push(ContentBlock::ToolUse {
-                        id: call.id.clone(),
-                        name: call.function.name.clone(),
-                        input: input.clone(),
-                    });
-                    tool_calls.push(ToolCall {
-                        id: call.id,
-                        name: call.function.name,
-                        input,
-                    });
+                if let Some(text) = msg.content {
+                    if !text.is_empty() {
+                        content.push(ContentBlock::Text { text });
+                    }
+                }
+
+                if let Some(calls) = msg.tool_calls {
+                    for call in calls {
+                        let id = call.id.unwrap_or_else(|| format!("call_{}", uuid::Uuid::new_v4()));
+                        if let Some(func) = call.function {
+                            let name = func.name.unwrap_or_default();
+                            let args = func.arguments.unwrap_or_else(|| "{}".to_string());
+                            let input: serde_json::Value = serde_json::from_str(&args).unwrap_or_default();
+
+                            content.push(ContentBlock::ToolUse {
+                                id: id.clone(),
+                                name: name.clone(),
+                                input: input.clone(),
+                            });
+                            tool_calls.push(ToolCall {
+                                id,
+                                name,
+                                input,
+                            });
+                        }
+                    }
                 }
             }
 
@@ -599,12 +635,13 @@ impl LlmDriver for OpenAIDriver {
                             ContentBlock::Text { text } => text_parts.push(text.clone()),
                             ContentBlock::ToolUse { id, name, input } => {
                                 tool_calls_out.push(OaiToolCall {
-                                    id: id.clone(),
-                                    call_type: "function".to_string(),
-                                    function: OaiFunction {
-                                        name: name.clone(),
-                                        arguments: serde_json::to_string(input).unwrap_or_default(),
-                                    },
+                                    id: Some(id.clone()),
+                                    call_type: Some("function".to_string()),
+                                    function: Some(OaiFunction {
+                                        name: Some(name.clone()),
+                                        arguments: Some(serde_json::to_string(input).unwrap_or_default()),
+                                    }),
+                                    index: None,
                                 });
                             }
                             ContentBlock::Thinking { .. } => {}
@@ -825,89 +862,71 @@ impl LlmDriver for OpenAIDriver {
                         continue;
                     }
 
-                    let json: serde_json::Value = match serde_json::from_str(data) {
+                    let chunk_resp: OaiResponse = match serde_json::from_str(data) {
                         Ok(v) => v,
-                        Err(_) => continue,
+                        Err(e) => {
+                            warn!(error = %e, data = %data, "Failed to parse OpenAI stream chunk");
+                            continue;
+                        }
                     };
 
                     // Extract usage if present (some providers send it in the last chunk)
-                    if let Some(u) = json.get("usage") {
-                        if let Some(pt) = u["prompt_tokens"].as_u64() {
-                            usage.input_tokens = pt;
-                        }
-                        if let Some(ct) = u["completion_tokens"].as_u64() {
-                            usage.output_tokens = ct;
-                        }
+                    if let Some(u) = chunk_resp.usage {
+                        usage.input_tokens = u.prompt_tokens;
+                        usage.output_tokens = u.completion_tokens;
                     }
 
-                    let choices = match json["choices"].as_array() {
-                        Some(c) => c,
-                        None => continue,
-                    };
-
-                    for choice in choices {
-                        let delta = &choice["delta"];
-
-                        // Text content delta
-                        if let Some(text) = delta["content"].as_str() {
-                            if !text.is_empty() {
-                                text_content.push_str(text);
-                                let _ = tx
-                                    .send(StreamEvent::TextDelta {
-                                        text: text.to_string(),
-                                    })
-                                    .await;
-                            }
-                        }
-
-                        // Reasoning/Thinking content delta (o-series models)
-                        if let Some(thinking) = delta["reasoning_content"].as_str() {
-                            if !thinking.is_empty() {
-                                thinking_content.push_str(thinking);
-                                let _ = tx
-                                    .send(StreamEvent::ThinkingDelta {
-                                        text: thinking.to_string(),
-                                    })
-                                    .await;
-                            }
-                        }
-
-                        // Tool call deltas
-                        if let Some(calls) = delta["tool_calls"].as_array() {
-                            for call in calls {
-                                let idx = call["index"].as_u64().unwrap_or(0) as usize;
-
-                                // Ensure tool_accum has enough entries
-                                while tool_accum.len() <= idx {
-                                    tool_accum.push((String::new(), String::new(), String::new()));
+                    for choice in chunk_resp.choices {
+                        if let Some(delta) = choice.delta {
+                            // Text content delta
+                            if let Some(text) = delta.content {
+                                if !text.is_empty() {
+                                    text_content.push_str(&text);
+                                    let _ = tx.send(StreamEvent::TextDelta { text }).await;
                                 }
+                            }
 
-                                // ID (sent in first chunk for this tool)
-                                if let Some(id) = call["id"].as_str() {
-                                    tool_accum[idx].0 = id.to_string();
+                            // Reasoning/Thinking content delta (o-series models and Blablador)
+                            if let Some(thinking) = delta.reasoning_content {
+                                if !thinking.is_empty() {
+                                    thinking_content.push_str(&thinking);
+                                    let _ = tx.send(StreamEvent::ThinkingDelta { text: thinking }).await;
                                 }
+                            }
 
-                                if let Some(func) = call.get("function") {
-                                    // Name (sent in first chunk)
-                                    if let Some(name) = func["name"].as_str() {
-                                        tool_accum[idx].1 = name.to_string();
-                                        let _ = tx
-                                            .send(StreamEvent::ToolUseStart {
-                                                id: tool_accum[idx].0.clone(),
-                                                name: name.to_string(),
-                                            })
-                                            .await;
+                            // Tool call deltas
+                            if let Some(calls) = delta.tool_calls {
+                                for call in calls {
+                                    let idx = call.index.unwrap_or(0);
+
+                                    // Ensure tool_accum has enough entries
+                                    while tool_accum.len() <= idx {
+                                        tool_accum.push((String::new(), String::new(), String::new()));
                                     }
 
-                                    // Arguments delta
-                                    if let Some(args) = func["arguments"].as_str() {
-                                        tool_accum[idx].2.push_str(args);
-                                        if !args.is_empty() {
+                                    // ID (sent in first chunk for this tool)
+                                    if let Some(id) = call.id {
+                                        tool_accum[idx].0 = id;
+                                    }
+
+                                    if let Some(func) = call.function {
+                                        // Name (sent in first chunk)
+                                        if let Some(name) = func.name {
+                                            tool_accum[idx].1 = name.clone();
                                             let _ = tx
-                                                .send(StreamEvent::ToolInputDelta {
-                                                    text: args.to_string(),
+                                                .send(StreamEvent::ToolUseStart {
+                                                    id: tool_accum[idx].0.clone(),
+                                                    name,
                                                 })
                                                 .await;
+                                        }
+
+                                        // Arguments delta
+                                        if let Some(args) = func.arguments {
+                                            tool_accum[idx].2.push_str(&args);
+                                            if !args.is_empty() {
+                                                let _ = tx.send(StreamEvent::ToolInputDelta { text: args }).await;
+                                            }
                                         }
                                     }
                                 }
@@ -915,8 +934,8 @@ impl LlmDriver for OpenAIDriver {
                         }
 
                         // Finish reason
-                        if let Some(fr) = choice["finish_reason"].as_str() {
-                            finish_reason = Some(fr.to_string());
+                        if let Some(fr) = choice.finish_reason {
+                            finish_reason = Some(fr);
                         }
                     }
                 }
@@ -1123,5 +1142,23 @@ mod tests {
         assert!(result.is_some());
         let resp = result.unwrap();
         assert_eq!(resp.tool_calls[0].name, "shell_exec");
+    }
+
+    #[test]
+    fn test_parse_blablador_null_chunk() {
+        // Simulates a chunk that might have been breaking parsing previously
+        let data = r#"{"choices":[{"index":0,"delta":{"content":"","tool_calls":null},"finish_reason":null}]}"#;
+        let chunk: OaiResponse = serde_json::from_str(data).expect("Should parse");
+        assert_eq!(chunk.choices.len(), 1);
+        let delta = chunk.choices[0].delta.as_ref().unwrap();
+        assert_eq!(delta.content.as_deref(), Some(""));
+        assert!(delta.tool_calls.is_none());
+    }
+
+    #[test]
+    fn test_parse_blablador_missing_fields_chunk() {
+        let data = r#"{"choices":[{"index":0,"delta":{}}]}"#;
+        let chunk: OaiResponse = serde_json::from_str(data).expect("Should parse");
+        assert!(chunk.choices[0].delta.is_some());
     }
 }
