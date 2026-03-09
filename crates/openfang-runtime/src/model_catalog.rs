@@ -761,6 +761,8 @@ fn builtin_aliases() -> HashMap<String, String> {
         ("grok-mini", "grok-2-mini"),
         ("grok3", "grok-3"),
         ("grok-fast", "grok-4-1-fast-reasoning"),
+        ("alias-large", "alias-large"),
+        ("alias-fast", "alias-fast"),
         // Perplexity alias
         ("sonar", "sonar-pro"),
         // AI21 aliases
@@ -907,6 +909,34 @@ fn builtin_models() -> Vec<ModelCatalogEntry> {
         // ══════════════════════════════════════════════════════════════
         // OpenAI (16)
         // ══════════════════════════════════════════════════════════════
+        ModelCatalogEntry {
+            id: "alias-large".into(),
+            display_name: "Blablador Large".into(),
+            provider: "openai".into(),
+            tier: ModelTier::Smart,
+            context_window: 128_000,
+            max_output_tokens: 16_384,
+            input_cost_per_m: 0.0,
+            output_cost_per_m: 0.0,
+            supports_tools: true,
+            supports_vision: true,
+            supports_streaming: true,
+            aliases: vec![],
+        },
+        ModelCatalogEntry {
+            id: "alias-fast".into(),
+            display_name: "Blablador Fast".into(),
+            provider: "openai".into(),
+            tier: ModelTier::Fast,
+            context_window: 128_000,
+            max_output_tokens: 16_384,
+            input_cost_per_m: 0.0,
+            output_cost_per_m: 0.0,
+            supports_tools: true,
+            supports_vision: true,
+            supports_streaming: true,
+            aliases: vec![],
+        },
         ModelCatalogEntry {
             id: "gpt-4o".into(),
             display_name: "GPT-4o".into(),

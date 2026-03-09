@@ -239,6 +239,9 @@ impl MediaEngine {
 
 /// Detect which vision provider is available based on environment variables.
 fn detect_vision_provider() -> Option<&'static str> {
+    if std::env::var("BLABLADOR_API_KEY").is_ok() {
+        return Some("openai");
+    }
     if std::env::var("ANTHROPIC_API_KEY").is_ok() {
         return Some("anthropic");
     }
@@ -266,7 +269,13 @@ fn detect_audio_provider() -> Option<&'static str> {
 fn default_vision_model(provider: &str) -> &str {
     match provider {
         "anthropic" => "claude-sonnet-4-20250514",
-        "openai" => "gpt-4o",
+        "openai" => {
+            if std::env::var("BLABLADOR_API_KEY").is_ok() {
+                "alias-large"
+            } else {
+                "gpt-4o"
+            }
+        }
         "gemini" => "gemini-2.5-flash",
         _ => "unknown",
     }
@@ -398,7 +407,12 @@ mod tests {
             default_vision_model("anthropic"),
             "claude-sonnet-4-20250514"
         );
-        assert_eq!(default_vision_model("openai"), "gpt-4o");
+        // Note: depends on environment, but we can check one branch
+        if std::env::var("BLABLADOR_API_KEY").is_ok() {
+            assert_eq!(default_vision_model("openai"), "alias-large");
+        } else {
+            assert_eq!(default_vision_model("openai"), "gpt-4o");
+        }
         assert_eq!(default_vision_model("gemini"), "gemini-2.5-flash");
         assert_eq!(default_vision_model("unknown"), "unknown");
     }

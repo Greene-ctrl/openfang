@@ -369,6 +369,7 @@ pub fn create_driver(config: &DriverConfig) -> Result<Arc<dyn LlmDriver>, LlmErr
 pub fn detect_available_provider() -> Option<(&'static str, &'static str, &'static str)> {
     // Priority: popular cloud providers first, then niche, then local
     const PROBE_ORDER: &[(&str, &str, &str)] = &[
+        ("openai", "alias-large", "BLABLADOR_API_KEY"),
         ("openai", "gpt-4o", "OPENAI_API_KEY"),
         ("anthropic", "claude-sonnet-4-20250514", "ANTHROPIC_API_KEY"),
         ("gemini", "gemini-2.5-flash", "GEMINI_API_KEY"),

@@ -20,5 +20,8 @@ EXPOSE 4200
 VOLUME /data
 ENV OPENFANG_HOME=/data
 ENV OPENFANG_LISTEN=0.0.0.0:4200
+ENV OPENFANG_DEFAULT_PROVIDER=openai
+ENV OPENFANG_DEFAULT_MODEL=alias-large
+ENV OPENFANG_DEFAULT_BASE_URL=https://api.helmholtz-blablador.fz-juelich.de/v1
 ENTRYPOINT ["openfang"]
 CMD ["start"]
