@@ -1357,7 +1357,7 @@ pub struct DefaultModelConfig {
 impl Default for DefaultModelConfig {
     fn default() -> Self {
         Self {
-            provider: "openai".to_string(),
+            provider: "blablador".to_string(),
             model: "alias-large".to_string(),
             api_key_env: "BLABLADOR_API_KEY".to_string(),
             base_url: Some("https://api.helmholtz-blablador.fz-juelich.de/v1".to_string()),

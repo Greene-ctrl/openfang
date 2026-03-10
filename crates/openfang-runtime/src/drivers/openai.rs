@@ -171,11 +171,63 @@ struct OaiResponseMessage {
     #[serde(default)]
     role: Option<String>,
     #[serde(default)]
-    content: Option<String>,
+    content: Option<serde_json::Value>,
     #[serde(default)]
-    reasoning_content: Option<String>,
+    reasoning_content: Option<serde_json::Value>,
+    #[serde(default)]
+    reasoning: Option<serde_json::Value>,
+    #[serde(default)]
+    thinking: Option<serde_json::Value>,
+    #[serde(default)]
+    thought: Option<serde_json::Value>,
     #[serde(default)]
     tool_calls: Option<Vec<OaiToolCall>>,
+}
+
+impl OaiResponseMessage {
+    /// Extract text content from the flexible content field.
+    fn extract_content(&self) -> Option<String> {
+        extract_text(&self.content)
+    }
+
+    /// Extract reasoning content from various possible field names.
+    fn extract_reasoning(&self) -> Option<String> {
+        self.reasoning_content
+            .as_ref()
+            .and_then(|v| extract_text(&Some(v.clone())))
+            .or_else(|| self.reasoning.as_ref().and_then(|v| extract_text(&Some(v.clone()))))
+            .or_else(|| self.thinking.as_ref().and_then(|v| extract_text(&Some(v.clone()))))
+            .or_else(|| self.thought.as_ref().and_then(|v| extract_text(&Some(v.clone()))))
+    }
+}
+
+/// Helper to extract a string from a flexible JSON value (string, array of parts, etc.)
+fn extract_text(value: &Option<serde_json::Value>) -> Option<String> {
+    match value {
+        Some(serde_json::Value::String(s)) => {
+            if s.is_empty() {
+                None
+            } else {
+                Some(s.clone())
+            }
+        }
+        Some(serde_json::Value::Array(parts)) => {
+            let mut out = String::new();
+            for part in parts {
+                if let Some(t) = part.get("text").and_then(|v| v.as_str()) {
+                    out.push_str(t);
+                } else if let Some(t) = part.as_str() {
+                    out.push_str(t);
+                }
+            }
+            if out.is_empty() {
+                None
+            } else {
+                Some(out)
+            }
+        }
+        _ => None,
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -491,18 +543,14 @@ impl LlmDriver for OpenAIDriver {
             let mut tool_calls = Vec::new();
 
             if let Some(msg) = choice.message {
-                if let Some(thinking) = msg.reasoning_content {
-                    if !thinking.is_empty() {
-                        content.push(ContentBlock::Thinking {
-                            thinking,
-                        });
-                    }
+                if let Some(thinking) = msg.extract_reasoning() {
+                    content.push(ContentBlock::Thinking {
+                        thinking,
+                    });
                 }
 
-                if let Some(text) = msg.content {
-                    if !text.is_empty() {
-                        content.push(ContentBlock::Text { text });
-                    }
+                if let Some(text) = msg.extract_content() {
+                    content.push(ContentBlock::Text { text });
                 }
 
                 if let Some(calls) = msg.tool_calls {
@@ -879,19 +927,15 @@ impl LlmDriver for OpenAIDriver {
                     for choice in chunk_resp.choices {
                         if let Some(delta) = choice.delta {
                             // Text content delta
-                            if let Some(text) = delta.content {
-                                if !text.is_empty() {
-                                    text_content.push_str(&text);
-                                    let _ = tx.send(StreamEvent::TextDelta { text }).await;
-                                }
+                            if let Some(text) = delta.extract_content() {
+                                text_content.push_str(&text);
+                                let _ = tx.send(StreamEvent::TextDelta { text }).await;
                             }
 
                             // Reasoning/Thinking content delta (o-series models and Blablador)
-                            if let Some(thinking) = delta.reasoning_content {
-                                if !thinking.is_empty() {
-                                    thinking_content.push_str(&thinking);
-                                    let _ = tx.send(StreamEvent::ThinkingDelta { text: thinking }).await;
-                                }
+                            if let Some(thinking) = delta.extract_reasoning() {
+                                thinking_content.push_str(&thinking);
+                                let _ = tx.send(StreamEvent::ThinkingDelta { text: thinking }).await;
                             }
 
                             // Tool call deltas
@@ -1147,11 +1191,11 @@ mod tests {
     #[test]
     fn test_parse_blablador_null_chunk() {
         // Simulates a chunk that might have been breaking parsing previously
-        let data = r#"{"choices":[{"index":0,"delta":{"content":"","tool_calls":null},"finish_reason":null}]}"#;
+        let data = r#"{"choices":[{"index":0,"delta":{"content":"some content","tool_calls":null},"finish_reason":null}]}"#;
         let chunk: OaiResponse = serde_json::from_str(data).expect("Should parse");
         assert_eq!(chunk.choices.len(), 1);
         let delta = chunk.choices[0].delta.as_ref().unwrap();
-        assert_eq!(delta.content.as_deref(), Some(""));
+        assert_eq!(delta.extract_content(), Some("some content".to_string()));
         assert!(delta.tool_calls.is_none());
     }
 

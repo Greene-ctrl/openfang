@@ -18,7 +18,7 @@ use openfang_types::model_catalog::{
     LMSTUDIO_BASE_URL,
     MINIMAX_BASE_URL, MISTRAL_BASE_URL, MOONSHOT_BASE_URL, OLLAMA_BASE_URL, OPENAI_BASE_URL,
     OPENROUTER_BASE_URL, PERPLEXITY_BASE_URL, QIANFAN_BASE_URL, QWEN_BASE_URL,
-    REPLICATE_BASE_URL, SAMBANOVA_BASE_URL, TOGETHER_BASE_URL, VENICE_BASE_URL, VLLM_BASE_URL,
+    REPLICATE_BASE_URL, SAMBANOVA_BASE_URL, TOGETHER_BASE_URL, VENICE_BASE_URL, BLABLADOR_BASE_URL, VLLM_BASE_URL,
     VOLCENGINE_BASE_URL, VOLCENGINE_CODING_BASE_URL, XAI_BASE_URL, ZAI_BASE_URL,
     ZAI_CODING_BASE_URL, ZHIPU_BASE_URL, ZHIPU_CODING_BASE_URL,
 };
@@ -205,6 +205,11 @@ fn provider_defaults(provider: &str) -> Option<ProviderDefaults> {
             api_key_env: "VENICE_API_KEY",
             key_required: true,
         }),
+        "blablador" => Some(ProviderDefaults {
+            base_url: BLABLADOR_BASE_URL,
+            api_key_env: "BLABLADOR_API_KEY",
+            key_required: true,
+        }),
         _ => None,
     }
 }
@@ -369,7 +374,7 @@ pub fn create_driver(config: &DriverConfig) -> Result<Arc<dyn LlmDriver>, LlmErr
 pub fn detect_available_provider() -> Option<(&'static str, &'static str, &'static str)> {
     // Priority: popular cloud providers first, then niche, then local
     const PROBE_ORDER: &[(&str, &str, &str)] = &[
-        ("openai", "alias-large", "BLABLADOR_API_KEY"),
+        ("blablador", "alias-large", "BLABLADOR_API_KEY"),
         ("openai", "gpt-4o", "OPENAI_API_KEY"),
         ("anthropic", "claude-sonnet-4-20250514", "ANTHROPIC_API_KEY"),
         ("gemini", "gemini-2.5-flash", "GEMINI_API_KEY"),

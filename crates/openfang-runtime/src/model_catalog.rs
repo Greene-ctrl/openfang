@@ -5,12 +5,12 @@
 
 use openfang_types::model_catalog::{
     AuthStatus, ModelCatalogEntry, ModelTier, ProviderInfo, AI21_BASE_URL, ANTHROPIC_BASE_URL,
-    BEDROCK_BASE_URL, CEREBRAS_BASE_URL, COHERE_BASE_URL, DEEPSEEK_BASE_URL, FIREWORKS_BASE_URL,
-    GEMINI_BASE_URL, GITHUB_COPILOT_BASE_URL, GROQ_BASE_URL, HUGGINGFACE_BASE_URL,
-    LMSTUDIO_BASE_URL, MINIMAX_BASE_URL, MISTRAL_BASE_URL, MOONSHOT_BASE_URL, OLLAMA_BASE_URL,
-    LEMONADE_BASE_URL, OPENAI_BASE_URL, OPENROUTER_BASE_URL, PERPLEXITY_BASE_URL,
-    QIANFAN_BASE_URL, QWEN_BASE_URL,
-    REPLICATE_BASE_URL, SAMBANOVA_BASE_URL, TOGETHER_BASE_URL, VENICE_BASE_URL, VLLM_BASE_URL,
+    BEDROCK_BASE_URL, BLABLADOR_BASE_URL, CEREBRAS_BASE_URL, COHERE_BASE_URL, DEEPSEEK_BASE_URL,
+    FIREWORKS_BASE_URL, GEMINI_BASE_URL, GITHUB_COPILOT_BASE_URL, GROQ_BASE_URL,
+    HUGGINGFACE_BASE_URL, LMSTUDIO_BASE_URL, MINIMAX_BASE_URL, MISTRAL_BASE_URL, MOONSHOT_BASE_URL,
+    OLLAMA_BASE_URL, LEMONADE_BASE_URL, OPENAI_BASE_URL, OPENROUTER_BASE_URL, PERPLEXITY_BASE_URL,
+    QIANFAN_BASE_URL, QWEN_BASE_URL, REPLICATE_BASE_URL, SAMBANOVA_BASE_URL, TOGETHER_BASE_URL,
+    VENICE_BASE_URL, VLLM_BASE_URL,
     VOLCENGINE_BASE_URL, VOLCENGINE_CODING_BASE_URL, XAI_BASE_URL, ZAI_BASE_URL,
     ZAI_CODING_BASE_URL, ZHIPU_BASE_URL, ZHIPU_CODING_BASE_URL,
 };
@@ -724,6 +724,15 @@ fn builtin_providers() -> Vec<ProviderInfo> {
             auth_status: AuthStatus::NotRequired,
             model_count: 0,
         },
+        ProviderInfo {
+            id: "blablador".into(),
+            display_name: "Helmholtz Blablador".into(),
+            api_key_env: "BLABLADOR_API_KEY".into(),
+            base_url: BLABLADOR_BASE_URL.into(),
+            key_required: true,
+            auth_status: AuthStatus::Missing,
+            model_count: 0,
+        },
     ]
 }
 
@@ -782,6 +791,8 @@ fn builtin_aliases() -> HashMap<String, String> {
         ("ernie", "ernie-4.5-8k"),
         ("kimi", "kimi-k2-0711"),
         ("minimax", "MiniMax-M2.5"),
+        ("alias-code", "alias-code"),
+        ("alias-embeddings", "alias-embeddings"),
         ("minimax-m2.5", "MiniMax-M2.5"),
         ("minimax-m2.1", "MiniMax-M2.1"),
         ("codegeex", "codegeex-4"),
@@ -851,6 +862,34 @@ fn builtin_models() -> Vec<ModelCatalogEntry> {
             aliases: vec![],
         },
         ModelCatalogEntry {
+            id: "alias-code".into(),
+            display_name: "Blablador Code".into(),
+            provider: "blablador".into(),
+            tier: ModelTier::Smart,
+            context_window: 128_000,
+            max_output_tokens: 16_384,
+            input_cost_per_m: 0.0,
+            output_cost_per_m: 0.0,
+            supports_tools: true,
+            supports_vision: false,
+            supports_streaming: true,
+            aliases: vec![],
+        },
+        ModelCatalogEntry {
+            id: "alias-embeddings".into(),
+            display_name: "Blablador Embeddings".into(),
+            provider: "blablador".into(),
+            tier: ModelTier::Local,
+            context_window: 8192,
+            max_output_tokens: 0,
+            input_cost_per_m: 0.0,
+            output_cost_per_m: 0.0,
+            supports_tools: false,
+            supports_vision: false,
+            supports_streaming: false,
+            aliases: vec![],
+        },
+        ModelCatalogEntry {
             id: "claude-sonnet-4-20250514".into(),
             display_name: "Claude Sonnet 4".into(),
             provider: "anthropic".into(),
@@ -912,7 +951,7 @@ fn builtin_models() -> Vec<ModelCatalogEntry> {
         ModelCatalogEntry {
             id: "alias-large".into(),
             display_name: "Blablador Large".into(),
-            provider: "openai".into(),
+            provider: "blablador".into(),
             tier: ModelTier::Smart,
             context_window: 128_000,
             max_output_tokens: 16_384,
@@ -926,7 +965,7 @@ fn builtin_models() -> Vec<ModelCatalogEntry> {
         ModelCatalogEntry {
             id: "alias-fast".into(),
             display_name: "Blablador Fast".into(),
-            provider: "openai".into(),
+            provider: "blablador".into(),
             tier: ModelTier::Fast,
             context_window: 128_000,
             max_output_tokens: 16_384,
@@ -3283,7 +3322,7 @@ mod tests {
     #[test]
     fn test_catalog_has_providers() {
         let catalog = ModelCatalog::new();
-        assert_eq!(catalog.list_providers().len(), 36);
+        assert_eq!(catalog.list_providers().len(), 37);
     }
 
     #[test]

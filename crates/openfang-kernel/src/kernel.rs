@@ -1713,7 +1713,7 @@ impl OpenFangKernel {
             }
 
             // Create a phase callback that emits PhaseChange events to WS/SSE clients
-            let _phase_tx = tx.clone();
+            let phase_tx = tx.clone();
             let phase_cb: openfang_runtime::agent_loop::PhaseCallback =
                 std::sync::Arc::new(move |phase| {
                     use openfang_runtime::agent_loop::LoopPhase;
@@ -1732,7 +1732,7 @@ impl OpenFangKernel {
                         phase: phase_str,
                         detail,
                     };
-                    let _ = _phase_tx.try_send(event);
+                    let _ = phase_tx.try_send(event);
                 });
 
             let result = run_agent_loop_streaming(
