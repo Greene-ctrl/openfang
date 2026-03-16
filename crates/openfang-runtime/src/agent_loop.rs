@@ -141,12 +141,18 @@ pub async fn run_agent_loop(
 ) -> OpenFangResult<AgentLoopResult> {
     info!(agent = %manifest.name, "Starting agent loop");
 
-    // Extract hand-allowed env vars from manifest metadata (set by kernel for hand settings)
-    let hand_allowed_env: Vec<String> = manifest
+    // Extract allowed env vars from manifest metadata
+    let mut allowed_env_vars: Vec<String> = manifest
         .metadata
         .get("hand_allowed_env")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
+
+    if let Some(google_env) = manifest.metadata.get("google_allowed_env") {
+        if let Ok(mut vars) = serde_json::from_value::<Vec<String>>(google_env.clone()) {
+            allowed_env_vars.append(&mut vars);
+        }
+    }
 
     // Recall relevant memories — prefer vector similarity search when embedding driver is available
     let memories = if let Some(emb) = embedding_driver {
@@ -632,10 +638,10 @@ pub async fn run_agent_loop(
                             mcp_connections,
                             web_ctx,
                             browser_ctx,
-                            if hand_allowed_env.is_empty() {
+                            if allowed_env_vars.is_empty() {
                                 None
                             } else {
-                                Some(&hand_allowed_env)
+                                Some(&allowed_env_vars)
                             },
                             workspace_root,
                             media_engine,
@@ -1046,12 +1052,18 @@ pub async fn run_agent_loop_streaming(
 ) -> OpenFangResult<AgentLoopResult> {
     info!(agent = %manifest.name, "Starting streaming agent loop");
 
-    // Extract hand-allowed env vars from manifest metadata (set by kernel for hand settings)
-    let hand_allowed_env: Vec<String> = manifest
+    // Extract allowed env vars from manifest metadata
+    let mut allowed_env_vars: Vec<String> = manifest
         .metadata
         .get("hand_allowed_env")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
+
+    if let Some(google_env) = manifest.metadata.get("google_allowed_env") {
+        if let Ok(mut vars) = serde_json::from_value::<Vec<String>>(google_env.clone()) {
+            allowed_env_vars.append(&mut vars);
+        }
+    }
 
     // Recall relevant memories — prefer vector similarity search when embedding driver is available
     let memories = if let Some(emb) = embedding_driver {
@@ -1557,10 +1569,10 @@ pub async fn run_agent_loop_streaming(
                             mcp_connections,
                             web_ctx,
                             browser_ctx,
-                            if hand_allowed_env.is_empty() {
+                            if allowed_env_vars.is_empty() {
                                 None
                             } else {
-                                Some(&hand_allowed_env)
+                                Some(&allowed_env_vars)
                             },
                             workspace_root,
                             media_engine,

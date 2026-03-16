@@ -1065,6 +1065,9 @@ pub struct KernelConfig {
     /// OAuth client ID overrides for PKCE flows.
     #[serde(default)]
     pub oauth: OAuthConfig,
+    /// Google Workspace configuration.
+    #[serde(default)]
+    pub google: GoogleConfig,
 }
 
 /// OAuth client ID overrides for PKCE flows.
@@ -1232,6 +1235,7 @@ impl Default for KernelConfig {
             budget: BudgetConfig::default(),
             provider_urls: HashMap::new(),
             oauth: OAuthConfig::default(),
+            google: GoogleConfig::default(),
         }
     }
 }
@@ -1455,6 +1459,33 @@ impl std::fmt::Debug for NetworkConfig {
 }
 
 /// Channel bridge configuration.
+/// Google Workspace CLI configuration.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GoogleConfig {
+    /// Env var holding the Google access token.
+    pub token_env: String,
+    /// Env var holding the path to the credentials JSON file.
+    pub credentials_file_env: String,
+}
+
+impl GoogleConfig {
+    /// Returns the names of environment variables used for Google auth.
+    pub fn env_vars(&self) -> Vec<String> {
+        let mut vars = Vec::new();
+        if !self.token_env.is_empty() {
+            vars.push(self.token_env.clone());
+        }
+        if !self.credentials_file_env.is_empty() {
+            vars.push(self.credentials_file_env.clone());
+        }
+        // Always include the canonical gws env vars
+        vars.push("GOOGLE_WORKSPACE_CLI_TOKEN".to_string());
+        vars.push("GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE".to_string());
+        vars
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct ChannelsConfig {

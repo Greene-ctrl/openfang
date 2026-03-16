@@ -1224,6 +1224,15 @@ impl OpenFangKernel {
         // Apply global budget defaults to agent resource quotas
         apply_budget_defaults(&self.config.budget, &mut manifest.resources);
 
+        // Inject Google Workspace CLI environment variables if configured
+        let google_env = self.config.google.env_vars();
+        if !google_env.is_empty() {
+            manifest.metadata.insert(
+                "google_allowed_env".to_string(),
+                serde_json::to_value(&google_env).unwrap_or_default(),
+            );
+        }
+
         // Create workspace directory for the agent (name-based, so SOUL.md survives recreation)
         let workspace_dir = manifest.workspace.clone().unwrap_or_else(|| {
             self.config.effective_workspaces_dir().join(&name)
