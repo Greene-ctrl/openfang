@@ -55,6 +55,7 @@ impl WebSearchEngine {
             SearchProvider::Tavily => self.search_tavily(query, max_results).await,
             SearchProvider::Perplexity => self.search_perplexity(query).await,
             SearchProvider::DuckDuckGo => self.search_duckduckgo(query, max_results).await,
+            SearchProvider::SearXng => self.search_searxng(query, max_results).await,
             SearchProvider::Auto => self.search_auto(query, max_results).await,
         };
 
@@ -67,9 +68,18 @@ impl WebSearchEngine {
     }
 
     /// Auto-select provider based on available API keys.
-    /// Priority: Tavily → Brave → Perplexity → DuckDuckGo
+    /// Priority: SearXNG → Tavily → Brave → Perplexity → DuckDuckGo
     async fn search_auto(&self, query: &str, max_results: usize) -> Result<String, String> {
-        // Tavily first (AI-agent-native)
+        // SearXNG first (if configured with a non-empty base URL)
+        if !self.config.searxng.base_url.is_empty() {
+            debug!("Auto: trying SearXNG");
+            match self.search_searxng(query, max_results).await {
+                Ok(result) => return Ok(result),
+                Err(e) => warn!("SearXNG failed, falling back: {e}"),
+            }
+        }
+
+        // Tavily second (AI-agent-native)
         if resolve_api_key(&self.config.tavily.api_key_env).is_some() {
             debug!("Auto: trying Tavily");
             match self.search_tavily(query, max_results).await {
@@ -274,6 +284,68 @@ impl WebSearchEngine {
         }
 
         Ok(wrap_external_content("perplexity-search", &output))
+    }
+
+    /// Search via SearXNG instance.
+    async fn search_searxng(&self, query: &str, max_results: usize) -> Result<String, String> {
+        let base_url = self.config.searxng.base_url.trim_end_matches('/');
+        let category = &self.config.searxng.category;
+
+        // Construct query with category prefix if not general
+        let search_query = if category != "general" && !category.is_empty() {
+            format!("!{} {}", category, query)
+        } else {
+            query.to_string()
+        };
+
+        let resp = self
+            .client
+            .get(format!("{}/search", base_url))
+            .query(&[
+                ("q", search_query.as_str()),
+                ("format", "json"),
+                ("pageno", "1"),
+            ])
+            .send()
+            .await
+            .map_err(|e| format!("SearXNG request failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            return Err(format!("SearXNG API returned {}", resp.status()));
+        }
+
+        let data: serde_json::Value = resp
+            .json()
+            .await
+            .map_err(|e| format!("SearXNG JSON parse failed: {e}"))?;
+
+        let results = data["results"].as_array().cloned().unwrap_or_default();
+        if results.is_empty() {
+            return Err(format!("No results found for '{query}' (SearXNG)."));
+        }
+
+        let mut output = format!("Search results for '{query}' (SearXNG):\n\n");
+        for (i, r) in results.iter().enumerate().take(max_results) {
+            let title = r["title"].as_str().unwrap_or("No Title Provided");
+            let url = r["url"].as_str().unwrap_or("No URL Provided");
+            let content = r["content"]
+                .as_str()
+                .or_else(|| r["description"].as_str())
+                .unwrap_or("No Snippet Provided");
+
+            // Sanitize snippet
+            let clean_snippet = content.split_whitespace().collect::<Vec<_>>().join(" ");
+
+            output.push_str(&format!(
+                "Result {}:\n  Title: {}\n  URL: {}\n  Snippet: {}\n\n",
+                i + 1,
+                title,
+                url,
+                clean_snippet
+            ));
+        }
+
+        Ok(wrap_external_content("searxng-search", &output))
     }
 
     /// Search via DuckDuckGo HTML (no API key needed).

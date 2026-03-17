@@ -152,7 +152,9 @@ pub enum SearchProvider {
     Perplexity,
     /// DuckDuckGo HTML (no API key needed).
     DuckDuckGo,
-    /// Auto-select based on available API keys (Tavily → Brave → Perplexity → DuckDuckGo).
+    /// SearXNG instance (custom or public).
+    SearXng,
+    /// Auto-select based on available API keys (SearXNG → Tavily → Brave → Perplexity → DuckDuckGo).
     #[default]
     Auto,
 }
@@ -171,6 +173,8 @@ pub struct WebConfig {
     pub tavily: TavilySearchConfig,
     /// Perplexity Search configuration.
     pub perplexity: PerplexitySearchConfig,
+    /// SearXNG configuration.
+    pub searxng: SearXngSearchConfig,
     /// Web fetch configuration.
     pub fetch: WebFetchConfig,
 }
@@ -183,7 +187,30 @@ impl Default for WebConfig {
             brave: BraveSearchConfig::default(),
             tavily: TavilySearchConfig::default(),
             perplexity: PerplexitySearchConfig::default(),
+            searxng: SearXngSearchConfig::default(),
             fetch: WebFetchConfig::default(),
+        }
+    }
+}
+
+/// SearXNG Search configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SearXngSearchConfig {
+    /// Base URL of the SearXNG instance.
+    pub base_url: String,
+    /// Default category (e.g., "general", "it", "science").
+    pub category: String,
+    /// Maximum results to return.
+    pub max_results: usize,
+}
+
+impl Default for SearXngSearchConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "https://CJJ-on-HF-SearXNG.hf.space".to_string(),
+            category: "general".to_string(),
+            max_results: 5,
         }
     }
 }
@@ -2866,10 +2893,13 @@ impl KernelConfig {
             if std::env::var(&wa.access_token_env)
                 .unwrap_or_default()
                 .is_empty()
+                && std::env::var(&wa.gateway_url_env)
+                    .unwrap_or_default()
+                    .is_empty()
             {
                 warnings.push(format!(
-                    "WhatsApp configured but {} is not set",
-                    wa.access_token_env
+                    "WhatsApp configured but neither {} nor {} is set",
+                    wa.access_token_env, wa.gateway_url_env
                 ));
             }
         }
@@ -3244,6 +3274,11 @@ impl KernelConfig {
                         "Perplexity search selected but {} is not set",
                         self.web.perplexity.api_key_env
                     ));
+                }
+            }
+            SearchProvider::SearXng => {
+                if self.web.searxng.base_url.is_empty() {
+                    warnings.push("SearXNG search selected but base_url is empty".to_string());
                 }
             }
             SearchProvider::DuckDuckGo | SearchProvider::Auto => {}

@@ -162,14 +162,10 @@ struct OaiChoice {
     delta: Option<OaiResponseMessage>,
     #[serde(default)]
     finish_reason: Option<String>,
-    #[serde(default)]
-    index: Option<usize>,
 }
 
 #[derive(Debug, Deserialize, Default)]
 struct OaiResponseMessage {
-    #[serde(default)]
-    role: Option<String>,
     #[serde(default)]
     content: Option<serde_json::Value>,
     #[serde(default)]
