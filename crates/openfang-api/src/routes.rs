@@ -2825,6 +2825,30 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     }))
 }
 
+/// GET /api-docs — Basic API documentation.
+pub async fn api_docs() -> impl IntoResponse {
+    Json(serde_json::json!({
+        "name": "OpenFang API",
+        "version": env!("CARGO_PKG_VERSION"),
+        "endpoints": {
+            "/api/health": "GET - System health status",
+            "/api/status": "GET - Kernel and agent status",
+            "/api/version": "GET - Build and version info",
+            "/api/agents": "GET - List agents, POST - Spawn agent",
+            "/api/agents/:id": "GET - Agent details, DELETE - Kill agent",
+            "/api/agents/:id/message": "POST - Send message to agent",
+            "/api/agents/:id/session": "GET - Conversation history",
+            "/api/models": "GET - List available models",
+            "/api/providers": "GET - List known LLM providers",
+            "/api/channels": "GET - List channel adapters",
+            "/api/tools": "GET - List available tools",
+            "/api/integrations": "GET - List installed integrations",
+            "/api/schedules": "GET - List scheduled jobs",
+            "/api/workflows": "GET - List registered workflows"
+        }
+    }))
+}
+
 /// GET /api/health/detail — Full health diagnostics (requires auth).
 pub async fn health_detail(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let health = state.kernel.supervisor.health();

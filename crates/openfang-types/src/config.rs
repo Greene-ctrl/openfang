@@ -948,7 +948,7 @@ pub struct KernelConfig {
     pub data_dir: PathBuf,
     /// Log level (trace, debug, info, warn, error).
     pub log_level: String,
-    /// API listen address (e.g., "0.0.0.0:4200").
+    /// API listen address (e.g., "0.0.0.0:7860").
     #[serde(alias = "listen_addr")]
     pub api_listen: String,
     /// Whether to enable the OFP network layer.
@@ -1193,7 +1193,7 @@ impl Default for KernelConfig {
             data_dir: home_dir.join("data"),
             home_dir,
             log_level: "info".to_string(),
-            api_listen: "127.0.0.1:50051".to_string(),
+            api_listen: "0.0.0.0:7860".to_string(),
             network_enabled: false,
             default_model: DefaultModelConfig::default(),
             memory: MemoryConfig::default(),
@@ -3266,7 +3266,7 @@ mod tests {
     fn test_default_config() {
         let config = KernelConfig::default();
         assert_eq!(config.log_level, "info");
-        assert_eq!(config.api_listen, "127.0.0.1:50051");
+        assert_eq!(config.api_listen, "0.0.0.0:7860");
         assert!(!config.network_enabled);
     }
 
