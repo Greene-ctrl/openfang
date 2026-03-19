@@ -1183,6 +1183,8 @@ pub enum McpTransportEntry {
     },
     /// HTTP Server-Sent Events.
     Sse { url: String },
+    /// Custom REST Bridge (OpenFang specific).
+    Rest { url: String },
 }
 
 /// A2A (Agent-to-Agent) protocol configuration.

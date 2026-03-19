@@ -179,10 +179,6 @@ pub fn bundled_skills() -> Vec<(&'static str, &'static str)> {
             "wasm-expert",
             include_str!("../bundled/wasm-expert/SKILL.md"),
         ),
-        (
-            "google-cli",
-            include_str!("../bundled/google-cli/SKILL.md"),
-        ),
     ]
 }
 
