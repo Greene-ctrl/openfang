@@ -2,10 +2,9 @@
 
 ## 1. Deployment Configuration
 
-### Target Space
-- **Profile:** `harvesthealth`
-- **Space:** `browser-use-webui`
-- **Full Identifier:** `harvesthealth/browser-use-webui`
+### Target Spaces
+- **Main:** `harvesthealth/browser-use-webui`
+- **Secondary:** `Leon4gr45/72683322t`
 - **Frontend Port:** `7860` (mandatory for all Hugging Face Spaces)
 
 ### Deployment Method
@@ -108,11 +107,12 @@ All endpoints listed here **must** appear in `/api-docs`.
 
 ## 3. Deployment Workflow
 
-### Standard Deployment Command
+### Standard Deployment Commands
 After any code change, run:
 
 ```bash
 hf upload harvesthealth/browser-use-webui --repo-type=space
+hf upload Leon4gr45/72683322t --repo-type=space
 ```
 
 This command must be executed **after updating and committing Agent.md**.
