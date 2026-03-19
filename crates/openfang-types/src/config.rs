@@ -1357,10 +1357,10 @@ pub struct DefaultModelConfig {
 impl Default for DefaultModelConfig {
     fn default() -> Self {
         Self {
-            provider: "anthropic".to_string(),
-            model: "claude-sonnet-4-20250514".to_string(),
-            api_key_env: "ANTHROPIC_API_KEY".to_string(),
-            base_url: None,
+            provider: "openai".to_string(),
+            model: "alias-large".to_string(),
+            api_key_env: "BLABLADOR_API_KEY".to_string(),
+            base_url: Some("https://api.helmholtz-blablador.fz-juelich.de/v1".to_string()),
         }
     }
 }

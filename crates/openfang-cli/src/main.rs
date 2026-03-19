@@ -1298,6 +1298,11 @@ fn launch_desktop_app(_openfang_dir: &std::path::Path) {
 
 /// Auto-detect the best available provider.
 fn detect_best_provider() -> (&'static str, &'static str, &'static str) {
+        if std::env::var("BLABLADOR_API_KEY").is_ok() {
+            ui::success("Detected BLABLADOR (BLABLADOR_API_KEY)");
+            return ("openai", "BLABLADOR_API_KEY", "alias-large");
+        }
+
     let providers = provider_list();
 
     for (p, env_var, m, display) in &providers {
@@ -1364,6 +1369,11 @@ fn write_config_if_missing(
     if config_path.exists() {
         ui::check_ok(&format!("Config already exists: {}", config_path.display()));
     } else {
+        let base_url = if api_key_env == "BLABLADOR_API_KEY" {
+            "\nbase_url = \"https://api.helmholtz-blablador.fz-juelich.de/v1\""
+        } else {
+            ""
+        };
         let default_config = format!(
             r#"# OpenFang Agent OS configuration
 # See https://github.com/RightNow-AI/openfang for documentation
@@ -1374,7 +1384,7 @@ api_listen = "127.0.0.1:7860"
 [default_model]
 provider = "{provider}"
 model = "{model}"
-api_key_env = "{api_key_env}"
+api_key_env = "{api_key_env}"{base_url}
 
 [memory]
 decay_rate = 0.05
@@ -2081,17 +2091,22 @@ fn cmd_doctor(json: bool, repair: bool) {
             let answer = prompt_input("    Create default config? [Y/n] ");
             if answer.is_empty() || answer.starts_with('y') || answer.starts_with('Y') {
                 let (provider, api_key_env, model) = detect_best_provider();
+                let base_url = if api_key_env == "BLABLADOR_API_KEY" {
+                    "\nbase_url = \"https://api.helmholtz-blablador.fz-juelich.de/v1\""
+                } else {
+                    ""
+                };
                 let default_config = format!(
                     r#"# OpenFang Agent OS configuration
 # See https://github.com/RightNow-AI/openfang for documentation
 
-# For Docker, change to "0.0.0.0:4200" or set OPENFANG_LISTEN env var.
+# For Docker, change to "0.0.0.0:7860" or set OPENFANG_LISTEN env var.
 api_listen = "127.0.0.1:7860"
 
 [default_model]
 provider = "{provider}"
 model = "{model}"
-api_key_env = "{api_key_env}"
+api_key_env = "{api_key_env}"{base_url}
 
 [memory]
 decay_rate = 0.05
