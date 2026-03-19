@@ -76,6 +76,8 @@ pub async fn auth(
         || path == "/favicon.ico"
         || path == "/.well-known/agent.json"
         || path.starts_with("/a2a/")
+        || path == "/health"
+        || path == "/api-docs"
         || path == "/api/health"
         || path == "/api/health/detail"
         || path == "/api/status"

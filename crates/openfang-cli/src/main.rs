@@ -82,7 +82,7 @@ const AFTER_HELP: &str = "\
 
 \x1b[1;36mMore:\x1b[0m
   Docs:       https://github.com/RightNow-AI/openfang
-  Dashboard:  http://127.0.0.1:4200/ (when daemon is running)";
+  Dashboard:  http://127.0.0.1:7860/ (when daemon is running)";
 
 /// OpenFang — the open-source Agent Operating System.
 #[derive(Parser)]
@@ -1368,8 +1368,8 @@ fn write_config_if_missing(
             r#"# OpenFang Agent OS configuration
 # See https://github.com/RightNow-AI/openfang for documentation
 
-# For Docker, change to "0.0.0.0:4200" or set OPENFANG_LISTEN env var.
-api_listen = "127.0.0.1:4200"
+# For Docker, change to "0.0.0.0:7860" or set OPENFANG_LISTEN env var.
+api_listen = "127.0.0.1:7860"
 
 [default_model]
 provider = "{provider}"
@@ -2086,7 +2086,7 @@ fn cmd_doctor(json: bool, repair: bool) {
 # See https://github.com/RightNow-AI/openfang for documentation
 
 # For Docker, change to "0.0.0.0:4200" or set OPENFANG_LISTEN env var.
-api_listen = "127.0.0.1:4200"
+api_listen = "127.0.0.1:7860"
 
 [default_model]
 provider = "{provider}"
@@ -2123,7 +2123,7 @@ decay_rate = 0.05
         }
 
         // --- Check 4: Port availability ---
-        // Read api_listen from config (default: 127.0.0.1:4200)
+        // Read api_listen from config (default: 127.0.0.1:7860)
         let api_listen = {
             let cfg_path = openfang_dir.join("config.toml");
             if cfg_path.exists() {
@@ -2131,9 +2131,9 @@ decay_rate = 0.05
                     .ok()
                     .and_then(|s| toml::from_str::<openfang_types::config::KernelConfig>(&s).ok())
                     .map(|c| c.api_listen)
-                    .unwrap_or_else(|| "127.0.0.1:4200".to_string())
+                    .unwrap_or_else(|| "127.0.0.1:7860".to_string())
             } else {
-                "127.0.0.1:4200".to_string()
+                "127.0.0.1:7860".to_string()
             }
         };
         if !json {
@@ -6463,7 +6463,7 @@ mod tests {
     #[test]
     fn test_doctor_config_include_field() {
         let config_toml = r#"
-api_listen = "127.0.0.1:4200"
+api_listen = "127.0.0.1:7860"
 include = ["providers.toml", "agents.toml"]
 
 [default_model]
@@ -6480,7 +6480,7 @@ api_key_env = "GROQ_API_KEY"
     #[test]
     fn test_doctor_exec_policy_field() {
         let config_toml = r#"
-api_listen = "127.0.0.1:4200"
+api_listen = "127.0.0.1:7860"
 
 [exec_policy]
 mode = "allowlist"
@@ -6504,7 +6504,7 @@ api_key_env = "GROQ_API_KEY"
     #[test]
     fn test_doctor_mcp_transport_validation() {
         let config_toml = r#"
-api_listen = "127.0.0.1:4200"
+api_listen = "127.0.0.1:7860"
 
 [default_model]
 provider = "groq"
