@@ -5,6 +5,7 @@
 ### Target Spaces
 - **Main:** `harvesthealth/browser-use-webui`
 - **Secondary:** `Leon4gr45/72683322t`
+- **Tertiary:** `Leon4gr45/AnythingLLm_Ollama_LoTUs5494_mistral-small-3.1`
 - **Frontend Port:** `7860` (mandatory for all Hugging Face Spaces)
 
 ### Deployment Method
@@ -113,6 +114,7 @@ After any code change, run:
 ```bash
 hf upload harvesthealth/browser-use-webui --repo-type=space
 hf upload Leon4gr45/72683322t --repo-type=space
+hf upload Leon4gr45/AnythingLLm_Ollama_LoTUs5494_mistral-small-3.1 --repo-type=space
 ```
 
 This command must be executed **after updating and committing Agent.md**.
