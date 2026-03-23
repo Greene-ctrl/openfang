@@ -22,10 +22,16 @@ pub struct OpenAIDriver {
 impl OpenAIDriver {
     /// Create a new OpenAI-compatible driver.
     pub fn new(api_key: String, base_url: String) -> Self {
+        let client = reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(300))
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+
         Self {
             api_key: Zeroizing::new(api_key),
             base_url,
-            client: reqwest::Client::new(),
+            client,
             extra_headers: Vec::new(),
         }
     }
@@ -211,7 +217,6 @@ impl LlmDriver for OpenAIDriver {
                 (Role::User, MessageContent::Blocks(blocks)) => {
                     // Handle tool results and images in user messages
                     let mut parts: Vec<OaiContentPart> = Vec::new();
-                    let mut has_tool_results = false;
                     for block in blocks {
                         match block {
                             ContentBlock::ToolResult {
@@ -219,7 +224,6 @@ impl LlmDriver for OpenAIDriver {
                                 content,
                                 ..
                             } => {
-                                has_tool_results = true;
                                 oai_messages.push(OaiMessage {
                                     role: "tool".to_string(),
                                     content: Some(OaiMessageContent::Text(
@@ -243,7 +247,7 @@ impl LlmDriver for OpenAIDriver {
                             _ => {}
                         }
                     }
-                    if !parts.is_empty() && !has_tool_results {
+                    if !parts.is_empty() {
                         oai_messages.push(OaiMessage {
                             role: "user".to_string(),
                             content: Some(OaiMessageContent::Parts(parts)),
@@ -312,6 +316,18 @@ impl LlmDriver for OpenAIDriver {
         } else {
             Some(serde_json::json!("auto"))
         };
+
+        // Safeguard: Ensure at least one 'user' message exists for providers like vLLM/Blablador
+        // This is necessary if the original user query was trimmed from history in a long loop.
+        if !oai_messages.iter().any(|m| m.role == "user") {
+            debug!("No user message found in history (likely trimmed), injecting safeguard query");
+            oai_messages.push(OaiMessage {
+                role: "user".to_string(),
+                content: Some(OaiMessageContent::Text("Please continue.".to_string())),
+                tool_calls: None,
+                tool_call_id: None,
+            });
+        }
 
         let (mt, mct) = if uses_completion_tokens(&request.model) {
             (None, Some(request.max_tokens))
@@ -573,22 +589,39 @@ impl LlmDriver for OpenAIDriver {
                     });
                 }
                 (Role::User, MessageContent::Blocks(blocks)) => {
+                    let mut parts = Vec::new();
                     for block in blocks {
-                        if let ContentBlock::ToolResult {
-                            tool_use_id,
-                            content,
-                            ..
-                        } = block
-                        {
-                            oai_messages.push(OaiMessage {
-                                role: "tool".to_string(),
-                                content: Some(OaiMessageContent::Text(
-                                    if content.is_empty() { "(empty)".to_string() } else { content.clone() }
-                                )),
-                                tool_calls: None,
-                                tool_call_id: Some(tool_use_id.clone()),
-                            });
+                        match block {
+                            ContentBlock::ToolResult { tool_use_id, content, .. } => {
+                                oai_messages.push(OaiMessage {
+                                    role: "tool".to_string(),
+                                    content: Some(OaiMessageContent::Text(
+                                        if content.is_empty() { "(empty)".to_string() } else { content.clone() }
+                                    )),
+                                    tool_calls: None,
+                                    tool_call_id: Some(tool_use_id.clone()),
+                                });
+                            }
+                            ContentBlock::Text { text } => {
+                                parts.push(OaiContentPart::Text { text: text.clone() });
+                            }
+                            ContentBlock::Image { media_type, data } => {
+                                parts.push(OaiContentPart::ImageUrl {
+                                    image_url: OaiImageUrl {
+                                        url: format!("data:{media_type};base64,{data}"),
+                                    },
+                                });
+                            }
+                            _ => {}
                         }
+                    }
+                    if !parts.is_empty() {
+                        oai_messages.push(OaiMessage {
+                            role: "user".to_string(),
+                            content: Some(OaiMessageContent::Parts(parts)),
+                            tool_calls: None,
+                            tool_call_id: None,
+                        });
                     }
                 }
                 (Role::Assistant, MessageContent::Blocks(blocks)) => {
@@ -651,6 +684,17 @@ impl LlmDriver for OpenAIDriver {
         } else {
             Some(serde_json::json!("auto"))
         };
+
+        // Safeguard: Ensure at least one 'user' message exists for providers like vLLM/Blablador
+        if !oai_messages.iter().any(|m| m.role == "user") {
+            debug!("No user message found in history (streaming, likely trimmed), injecting safeguard query");
+            oai_messages.push(OaiMessage {
+                role: "user".to_string(),
+                content: Some(OaiMessageContent::Text("Please continue.".to_string())),
+                tool_calls: None,
+                tool_call_id: None,
+            });
+        }
 
         let (mt, mct) = if uses_completion_tokens(&request.model) {
             (None, Some(request.max_tokens))

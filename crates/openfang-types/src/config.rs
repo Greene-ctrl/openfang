@@ -1193,7 +1193,7 @@ impl Default for KernelConfig {
             data_dir: home_dir.join("data"),
             home_dir,
             log_level: "info".to_string(),
-            api_listen: "127.0.0.1:50051".to_string(),
+            api_listen: "0.0.0.0:7860".to_string(),
             network_enabled: false,
             default_model: DefaultModelConfig::default(),
             memory: MemoryConfig::default(),
@@ -1357,10 +1357,10 @@ pub struct DefaultModelConfig {
 impl Default for DefaultModelConfig {
     fn default() -> Self {
         Self {
-            provider: "anthropic".to_string(),
-            model: "claude-sonnet-4-20250514".to_string(),
-            api_key_env: "ANTHROPIC_API_KEY".to_string(),
-            base_url: None,
+            provider: "openai".to_string(),
+            model: "alias-large".to_string(),
+            api_key_env: "BLABLADOR_API_KEY".to_string(),
+            base_url: Some("https://api.helmholtz-blablador.fz-juelich.de/v1".to_string()),
         }
     }
 }
@@ -3266,7 +3266,7 @@ mod tests {
     fn test_default_config() {
         let config = KernelConfig::default();
         assert_eq!(config.log_level, "info");
-        assert_eq!(config.api_listen, "127.0.0.1:50051");
+        assert_eq!(config.api_listen, "0.0.0.0:7860");
         assert!(!config.network_enabled);
     }
 

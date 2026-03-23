@@ -2825,6 +2825,20 @@ pub async fn health(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     }))
 }
 
+/// GET /api-docs — Simple API documentation.
+pub async fn api_docs() -> impl IntoResponse {
+    Json(serde_json::json!({
+        "endpoints": [
+            { "method": "GET", "path": "/health", "purpose": "Health check" },
+            { "method": "GET", "path": "/api-docs", "purpose": "API documentation" },
+            { "method": "GET", "path": "/api/agents", "purpose": "List all agents" },
+            { "method": "POST", "path": "/api/agents", "purpose": "Spawn a new agent" },
+            { "method": "POST", "path": "/api/agents/:id/message", "purpose": "Send a message to an agent" },
+            { "method": "GET", "path": "/api/status", "purpose": "Kernel status" }
+        ]
+    }))
+}
+
 /// GET /api/health/detail — Full health diagnostics (requires auth).
 pub async fn health_detail(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let health = state.kernel.supervisor.health();
