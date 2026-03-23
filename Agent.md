@@ -19,7 +19,8 @@
 1. Ensure `Cargo.toml` and `Cargo.lock` are NOT ignored by `.hfignore`.
 2. Verify `Dockerfile` uses port 7860 and sets up user 1000.
 3. Confirm `/health` and `/api-docs` endpoints are implemented.
-4. Set up necessary environment variables (e.g., `HF_TOKEN`) in the Space settings.
+4. Relocate `agents` and `skills` to subdirectories of `/app/data` to match the kernel's configuration.
+5. Set up necessary environment variables (e.g., `HF_TOKEN`) in the Space settings.
 
 ## Test Cases
 - Health Check: `curl -f http://localhost:7860/health` should return HTTP 200.

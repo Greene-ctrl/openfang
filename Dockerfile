@@ -24,19 +24,22 @@ RUN apt-get update && apt-get install -y \
 
 # Set up user with UID 1000
 RUN useradd -m -u 1000 user
-USER user
-ENV HOME=/home/user \
-    PATH=/home/user/.local/bin:/usr/local/bin:$PATH
 
 WORKDIR /app
 
-# Copy binary and agents
-COPY --from=builder --chown=user:user /build/target/release/openfang /usr/local/bin/
-COPY --from=builder --chown=user:user /build/agents /app/agents
-
 # Configure OpenFang home directory
 ENV OPENFANG_HOME=/app/data
-RUN mkdir -p /app/data && chown -R user:user /app
+RUN mkdir -p /app/data/agents /app/data/skills && chown -R user:user /app
+
+# Copy binary and agents
+COPY --from=builder --chown=user:user /build/target/release/openfang /usr/local/bin/
+
+# Copy agents to the configured home directory
+COPY --from=builder --chown=user:user /build/agents /app/data/agents
+
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:/usr/local/bin:$PATH
 
 EXPOSE 7860
 
