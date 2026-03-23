@@ -1497,6 +1497,9 @@ impl OpenFangKernel {
             return Ok((rx, handle));
         }
 
+        // Update last active time immediately when turn starts
+        let _ = self.registry.set_state(agent_id, AgentState::Running);
+
         // LLM agent: true streaming via agent loop
         let mut session = self
             .memory
@@ -1713,10 +1716,16 @@ impl OpenFangKernel {
             }
 
             // Create a phase callback that emits PhaseChange events to WS/SSE clients
+            // and updates agent's last_active time to prevent heartbeat timeouts during long runs.
             let phase_tx = tx.clone();
+            let kc = kernel_clone.clone();
             let phase_cb: openfang_runtime::agent_loop::PhaseCallback =
                 std::sync::Arc::new(move |phase| {
                     use openfang_runtime::agent_loop::LoopPhase;
+
+                    // Update last active time on phase change
+                    let _ = kc.registry.set_state(agent_id, AgentState::Running);
+
                     let (phase_str, detail) = match &phase {
                         LoopPhase::Thinking => ("thinking".to_string(), None),
                         LoopPhase::ToolUse { tool_name } => {
@@ -1983,6 +1992,9 @@ impl OpenFangKernel {
         message: &str,
         kernel_handle: Option<Arc<dyn KernelHandle>>,
     ) -> KernelResult<AgentLoopResult> {
+        // Update last active time immediately when turn starts
+        let _ = self.registry.set_state(agent_id, AgentState::Running);
+
         // Check metering quota before starting
         self.metering
             .check_quota(agent_id, &entry.manifest.resources)
@@ -2195,6 +2207,15 @@ impl OpenFangKernel {
             .unwrap_or_else(|e| e.into_inner())
             .snapshot();
 
+        // Create a phase callback that updates agent's last_active time
+        // to prevent heartbeat timeouts during long non-streaming runs.
+        let kc = self.self_handle.get().and_then(|w| w.upgrade());
+        let phase_cb: Option<openfang_runtime::agent_loop::PhaseCallback> = kc.map(|k| {
+            std::sync::Arc::new(move |_phase| {
+                let _ = k.registry.set_state(agent_id, AgentState::Running);
+            }) as openfang_runtime::agent_loop::PhaseCallback
+        });
+
         // Load workspace-scoped skills (override global skills with same name)
         if let Some(ref workspace) = manifest.workspace {
             let ws_skills = workspace.join("skills");
@@ -2228,7 +2249,7 @@ impl OpenFangKernel {
             Some(&self.browser_ctx),
             self.embedding_driver.as_deref(),
             manifest.workspace.as_deref(),
-            None, // on_phase callback
+            phase_cb.as_ref(),
             Some(&self.media_engine),
             if self.config.tts.enabled {
                 Some(&self.tts_engine)
@@ -3974,9 +3995,18 @@ impl OpenFangKernel {
                 base_url,
             };
 
-            drivers::create_driver(&driver_config).map_err(|e| {
-                KernelError::BootFailed(format!("Agent LLM driver init failed: {e}"))
-            })?
+            match drivers::create_driver(&driver_config) {
+                Ok(d) => d,
+                Err(e) => {
+                    warn!(
+                        agent = %manifest.name,
+                        provider = %agent_provider,
+                        error = %e,
+                        "Agent LLM driver init failed — falling back to kernel default driver"
+                    );
+                    Arc::clone(&self.default_driver)
+                }
+            }
         };
 
         // If fallback models are configured, wrap in FallbackDriver
