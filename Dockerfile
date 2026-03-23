@@ -7,6 +7,8 @@ COPY crates ./crates
 COPY xtask ./xtask
 COPY agents ./agents
 COPY packages ./packages
+# Limit parallel build jobs to prevent OOM errors on HF runners
+ENV CARGO_BUILD_JOBS=2
 RUN cargo build --release --bin openfang
 
 FROM debian:bookworm-slim
