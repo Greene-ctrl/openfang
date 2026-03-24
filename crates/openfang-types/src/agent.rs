@@ -57,9 +57,9 @@ pub struct ModelRoutingConfig {
 impl Default for ModelRoutingConfig {
     fn default() -> Self {
         Self {
-            simple_model: "claude-haiku-4-5-20251001".to_string(),
-            medium_model: "claude-sonnet-4-20250514".to_string(),
-            complex_model: "claude-sonnet-4-20250514".to_string(),
+            simple_model: "alias-fast".to_string(),
+            medium_model: "alias-large".to_string(),
+            complex_model: "alias-large".to_string(),
             simple_threshold: 100,
             complex_threshold: 500,
         }
@@ -384,13 +384,13 @@ pub struct ModelConfig {
 impl Default for ModelConfig {
     fn default() -> Self {
         Self {
-            provider: "anthropic".to_string(),
-            model: "claude-sonnet-4-20250514".to_string(),
+            provider: "openai".to_string(),
+            model: "alias-large".to_string(),
             max_tokens: 4096,
             temperature: 0.7,
             system_prompt: "You are a helpful AI agent.".to_string(),
-            api_key_env: None,
-            base_url: None,
+            api_key_env: Some("BLABLADOR_API_KEY".to_string()),
+            base_url: Some("https://api.helmholtz-blablador.fz-juelich.de/v1".to_string()),
         }
     }
 }

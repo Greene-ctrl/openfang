@@ -1074,19 +1074,29 @@ impl OpenFangKernel {
                         let is_default_model = restored_entry.manifest.model.model.is_empty()
                             || restored_entry.manifest.model.model == "default";
                         let is_auto_spawned = restored_entry.name == "assistant"
-                            && restored_entry.manifest.description == "General-purpose assistant";
+                            && (restored_entry.manifest.description == "General-purpose assistant"
+                                || restored_entry.manifest.description.contains("default OpenClaw agent"));
                         if is_default_provider && is_default_model || is_auto_spawned {
-                            if !dm.provider.is_empty() {
+                            let mut changed = false;
+                            if !dm.provider.is_empty() && restored_entry.manifest.model.provider != dm.provider {
                                 restored_entry.manifest.model.provider = dm.provider.clone();
+                                changed = true;
                             }
-                            if !dm.model.is_empty() {
+                            if !dm.model.is_empty() && restored_entry.manifest.model.model != dm.model {
                                 restored_entry.manifest.model.model = dm.model.clone();
+                                changed = true;
                             }
-                            if !dm.api_key_env.is_empty() {
+                            if !dm.api_key_env.is_empty() && restored_entry.manifest.model.api_key_env.as_ref() != Some(&dm.api_key_env) {
                                 restored_entry.manifest.model.api_key_env = Some(dm.api_key_env.clone());
+                                changed = true;
                             }
-                            if dm.base_url.is_some() {
+                            if dm.base_url.is_some() && restored_entry.manifest.model.base_url != dm.base_url {
                                 restored_entry.manifest.model.base_url.clone_from(&dm.base_url);
+                                changed = true;
+                            }
+                            if changed {
+                                info!(agent = %name, "Updated auto-spawned agent to match new kernel defaults");
+                                let _ = kernel.memory.save_agent(&restored_entry);
                             }
                         }
                     }
