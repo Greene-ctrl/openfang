@@ -7,14 +7,43 @@ COPY crates ./crates
 COPY xtask ./xtask
 COPY agents ./agents
 COPY packages ./packages
+# Limit parallel build jobs to prevent OOM errors on HF runners
+ENV CARGO_BUILD_JOBS=2
 RUN cargo build --release --bin openfang
 
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /build/target/release/openfang /usr/local/bin/
-COPY --from=builder /build/agents /opt/openfang/agents
-EXPOSE 4200
-VOLUME /data
-ENV OPENFANG_HOME=/data
-ENTRYPOINT ["openfang"]
-CMD ["start"]
+
+# Install dependencies required for HF Spaces Dev Mode and OpenFang
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    bash \
+    curl \
+    wget \
+    procps \
+    git \
+    git-lfs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up user with UID 1000
+RUN useradd -m -u 1000 user
+
+WORKDIR /app
+
+# Configure OpenFang home directory
+ENV OPENFANG_HOME=/app/data
+RUN mkdir -p /app/data/agents /app/data/skills && chown -R user:user /app
+
+# Copy binary and agents
+COPY --from=builder --chown=user:user /build/target/release/openfang /usr/local/bin/
+
+# Copy agents to the configured home directory
+COPY --from=builder --chown=user:user /build/agents /app/data/agents
+
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:/usr/local/bin:$PATH
+
+EXPOSE 7860
+
+# Use CMD for startup as required by HF Dev Mode
+CMD ["openfang", "start"]

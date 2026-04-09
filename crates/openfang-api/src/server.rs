@@ -109,6 +109,8 @@ pub async fn build_router(
         .route("/", axum::routing::get(webchat::webchat_page))
         .route("/logo.png", axum::routing::get(webchat::logo_png))
         .route("/favicon.ico", axum::routing::get(webchat::favicon_ico))
+        .route("/health", axum::routing::get(routes::health))
+        .route("/api-docs", axum::routing::get(routes::api_docs))
         .route(
             "/api/metrics",
             axum::routing::get(routes::prometheus_metrics),

@@ -1,0 +1,11 @@
+# Hugging Face ignore file
+target/
+.git/
+.github/
+.env
+secrets.env
+daemon.json
+tui.log
+# Ensure Cargo files are NOT ignored for remote builds
+!Cargo.toml
+!Cargo.lock
